@@ -334,10 +334,6 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="purpose">Purpose of Visit *</label>
-                        <textarea id="purpose" required></textarea>
-                    </div>
-                    <div class="form-group">
                         <label for="contact">Contact Number</label>
                         <input type="tel" id="contact">
                     </div>
@@ -365,7 +361,6 @@
                     </div>
                 </div>
                 <button onclick="downloadCSV()" class="btn btn-secondary">📥 Download CSV</button>
-                <button onclick="clearRegister()" class="btn btn-danger">🗑️ Clear Register</button>
                 <div class="visitor-list" id="registerList"></div>
             </div>
 
@@ -496,7 +491,6 @@
                 name: document.getElementById('name').value,
                 company: document.getElementById('company').value,
                 type: document.getElementById('type').value,
-                purpose: document.getElementById('purpose').value,
                 contact: document.getElementById('contact').value
             };
             
@@ -556,7 +550,7 @@
                     <div class="visitor-card ${v.signOutTime ? 'signed-out' : ''}">
                         <div class="visitor-name">${v.name} - ${v.company}</div>
                         <div class="visitor-details">
-                            ${v.type} | ${v.purpose}<br>
+                            ${v.type}<br>
                             In: ${new Date(v.signInTime).toLocaleTimeString()}
                             ${v.signOutTime ? ` | Out: ${new Date(v.signOutTime).toLocaleTimeString()}` : ' | <strong>Still on site</strong>'}
                         </div>
@@ -572,12 +566,11 @@
         // Download CSV
         function downloadCSV() {
             const csv = [
-                ['Name', 'Company', 'Type', 'Purpose', 'Contact', 'Sign In', 'Sign Out'],
+                ['Name', 'Company', 'Type', 'Contact', 'Sign In', 'Sign Out'],
                 ...visitors.map(v => [
                     v.name,
                     v.company,
                     v.type,
-                    v.purpose,
                     v.contact || '',
                     new Date(v.signInTime).toLocaleString(),
                     v.signOutTime ? new Date(v.signOutTime).toLocaleString() : 'Still on site'
@@ -591,13 +584,6 @@
             a.download = `visitor-register-${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
-        }
-
-        // Clear Register
-        function clearRegister() {
-            if (confirm('Are you sure you want to clear all visitor records? This cannot be undone.')) {
-                clearAllVisitors();
-            }
         }
     </script>
 </body>

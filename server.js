@@ -70,16 +70,6 @@ app.put('/api/visitors/:id/signout', async (req, res) => {
     }
 });
 
-// Clear all visitors
-app.delete('/api/visitors', async (req, res) => {
-    try {
-        await fs.writeFile(DATA_FILE, JSON.stringify([]));
-        res.json({ message: 'All visitors cleared' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to clear visitors' });
-    }
-});
-
 // Start server
 initDataFile().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
