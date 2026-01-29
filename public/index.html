@@ -35,6 +35,11 @@
             text-align: center;
         }
 
+        .header-logo {
+            max-width: 200px;
+            margin-bottom: 15px;
+        }
+
         .header h1 {
             font-size: 24px;
             margin-bottom: 5px;
@@ -317,6 +322,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <img src="sansom-logo.jpg" alt="Sansoms Logo" class="header-logo">
             <h1>🏗️ Site Visitor Management</h1>
             <p>Sansoms Refurbishment @ Orams</p>
         </div>
@@ -346,6 +352,7 @@
                         <select id="type" required>
                             <option value="">-- Select --</option>
                             <option value="Contractor">Contractor</option>
+                            <option value="Client">Client</option>
                             <option value="Visitor">Visitor</option>
                             <option value="Supplier">Supplier</option>
                             <option value="Inspector">Inspector</option>
@@ -355,6 +362,10 @@
                     <div class="form-group">
                         <label for="contact">Contact Number</label>
                         <input type="tel" id="contact">
+                    </div>
+                    <div class="form-group">
+                        <label for="carRego">Car Registration (optional)</label>
+                        <input type="text" id="carRego" placeholder="e.g. ABC123">
                     </div>
                     <button type="submit" class="btn btn-primary">✓ Sign In</button>
                 </form>
@@ -511,7 +522,8 @@
                 name: document.getElementById('name').value,
                 company: document.getElementById('company').value,
                 type: document.getElementById('type').value,
-                contact: document.getElementById('contact').value
+                contact: document.getElementById('contact').value,
+                carRego: document.getElementById('carRego').value
             };
             
             const success = await addVisitor(visitorData);
@@ -549,7 +561,7 @@
                         <div class="visitor-name">${v.name}</div>
                         <div class="visitor-details">
                             ${v.company} | ${v.type}<br>
-                            Signed in: ${new Date(v.signInTime).toLocaleTimeString()}
+                            Signed in: ${new Date(v.signInTime).toLocaleTimeString()}${v.carRego ? `<br>Car: ${v.carRego}` : ''}
                         </div>
                         <button class="sign-out-btn" onclick="signOutVisitor(${v.id})">Sign Out</button>
                     </div>
@@ -570,7 +582,7 @@
                     <div class="visitor-card ${v.signOutTime ? 'signed-out' : ''}">
                         <div class="visitor-name">${v.name} - ${v.company}</div>
                         <div class="visitor-details">
-                            ${v.type}<br>
+                            ${v.type}${v.carRego ? ` | Car: ${v.carRego}` : ''}<br>
                             In: ${new Date(v.signInTime).toLocaleTimeString()}
                             ${v.signOutTime ? ` | Out: ${new Date(v.signOutTime).toLocaleTimeString()}` : ' | <strong>Still on site</strong>'}
                         </div>
@@ -586,12 +598,13 @@
         // Download CSV
         function downloadCSV() {
             const csv = [
-                ['Name', 'Company', 'Type', 'Contact', 'Sign In', 'Sign Out'],
+                ['Name', 'Company', 'Type', 'Contact', 'Car Registration', 'Sign In', 'Sign Out'],
                 ...visitors.map(v => [
                     v.name,
                     v.company,
                     v.type,
                     v.contact || '',
+                    v.carRego || '',
                     new Date(v.signInTime).toLocaleString(),
                     v.signOutTime ? new Date(v.signOutTime).toLocaleString() : 'Still on site'
                 ])
