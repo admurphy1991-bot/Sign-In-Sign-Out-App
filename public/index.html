@@ -597,6 +597,13 @@
 
         // Download CSV
         function downloadCSV() {
+            // Password protection
+            const password = prompt('Enter password to download CSV:');
+            if (password !== 'Sansom12345') {
+                alert('Incorrect password!');
+                return;
+            }
+            
             const csv = [
                 ['Name', 'Company', 'Type', 'Contact', 'Car Registration', 'Sign In', 'Sign Out'],
                 ...visitors.map(v => [
