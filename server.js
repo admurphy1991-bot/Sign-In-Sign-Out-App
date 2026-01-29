@@ -1,61 +1,30 @@
 const express = require('express');
-const { Pool } = require('pg');
+const fs = require('fs').promises;
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// PostgreSQL connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
-});
+const DATA_FILE = path.join(__dirname, 'visitors.json');
 
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
 
-// Initialize database table
-async function initDatabase() {
+// Initialize data file if it doesn't exist
+async function initDataFile() {
     try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS visitors (
-                id BIGSERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                company VARCHAR(255) NOT NULL,
-                type VARCHAR(100) NOT NULL,
-                contact VARCHAR(100),
-                sign_in_time TIMESTAMP NOT NULL,
-                sign_out_time TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        console.log('✅ Database table initialized');
-    } catch (error) {
-        console.error('❌ Database initialization error:', error);
+        await fs.access(DATA_FILE);
+    } catch {
+        await fs.writeFile(DATA_FILE, JSON.stringify([]));
     }
 }
 
 // Get all visitors
 app.get('/api/visitors', async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT * FROM visitors ORDER BY sign_in_time DESC'
-        );
-        
-        // Convert to format expected by frontend
-        const visitors = result.rows.map(row => ({
-            id: parseInt(row.id),
-            name: row.name,
-            company: row.company,
-            type: row.type,
-            contact: row.contact,
-            signInTime: row.sign_in_time,
-            signOutTime: row.sign_out_time
-        }));
-        
-        res.json(visitors);
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        res.json(JSON.parse(data));
     } catch (error) {
-        console.error('Error fetching visitors:', error);
         res.status(500).json({ error: 'Failed to read visitors' });
     }
 });
@@ -63,29 +32,21 @@ app.get('/api/visitors', async (req, res) => {
 // Add new visitor (sign in)
 app.post('/api/visitors', async (req, res) => {
     try {
-        const { name, company, type, contact } = req.body;
-        const signInTime = new Date();
-        
-        const result = await pool.query(
-            `INSERT INTO visitors (name, company, type, contact, sign_in_time) 
-             VALUES ($1, $2, $3, $4, $5) 
-             RETURNING *`,
-            [name, company, type, contact || null, signInTime]
-        );
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        const visitors = JSON.parse(data);
         
         const newVisitor = {
-            id: parseInt(result.rows[0].id),
-            name: result.rows[0].name,
-            company: result.rows[0].company,
-            type: result.rows[0].type,
-            contact: result.rows[0].contact,
-            signInTime: result.rows[0].sign_in_time,
-            signOutTime: result.rows[0].sign_out_time
+            id: Date.now(),
+            ...req.body,
+            signInTime: new Date().toISOString(),
+            signOutTime: null
         };
+        
+        visitors.push(newVisitor);
+        await fs.writeFile(DATA_FILE, JSON.stringify(visitors, null, 2));
         
         res.json(newVisitor);
     } catch (error) {
-        console.error('Error adding visitor:', error);
         res.status(500).json({ error: 'Failed to add visitor' });
     }
 });
@@ -93,47 +54,30 @@ app.post('/api/visitors', async (req, res) => {
 // Sign out visitor
 app.put('/api/visitors/:id/signout', async (req, res) => {
     try {
-        const signOutTime = new Date();
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        const visitors = JSON.parse(data);
         
-        const result = await pool.query(
-            `UPDATE visitors 
-             SET sign_out_time = $1 
-             WHERE id = $2 
-             RETURNING *`,
-            [signOutTime, req.params.id]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Visitor not found' });
+        const visitor = visitors.find(v => v.id === parseInt(req.params.id));
+        if (visitor) {
+            visitor.signOutTime = new Date().toISOString();
+            await fs.writeFile(DATA_FILE, JSON.stringify(visitors, null, 2));
+            res.json(visitor);
+        } else {
+            res.status(404).json({ error: 'Visitor not found' });
         }
-        
-        const visitor = {
-            id: parseInt(result.rows[0].id),
-            name: result.rows[0].name,
-            company: result.rows[0].company,
-            type: result.rows[0].type,
-            contact: result.rows[0].contact,
-            signInTime: result.rows[0].sign_in_time,
-            signOutTime: result.rows[0].sign_out_time
-        };
-        
-        res.json(visitor);
     } catch (error) {
-        console.error('Error signing out visitor:', error);
         res.status(500).json({ error: 'Failed to sign out visitor' });
     }
 });
 
 // Start server
-initDatabase().then(() => {
+initDataFile().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║   🏗️  Site Visitor Management Server                      ║
 ║                                                           ║
 ║   Server running on: http://localhost:${PORT}              ║
-║                                                           ║
-║   Database: ${process.env.DATABASE_URL ? '✅ Connected' : '⚠️  Using memory (data will be lost)'}                    ║
 ║                                                           ║
 ║   To access from other devices on your network:          ║
 ║   Find your computer's IP address and use:               ║
