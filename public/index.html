@@ -291,6 +291,25 @@
             }
             #qr {
                 display: block !important;
+                text-align: center;
+                padding: 40px !important;
+            }
+            .qr-section {
+                padding: 40px !important;
+            }
+            .qr-section img {
+                max-width: 400px !important;
+                margin-bottom: 30px !important;
+            }
+            #qrcode {
+                margin: 30px auto !important;
+            }
+            #qrcode img {
+                margin: 0 auto !important;
+            }
+            .qr-instructions {
+                font-size: 18px !important;
+                margin-top: 30px !important;
             }
         }
     </style>
@@ -450,8 +469,8 @@
             document.getElementById('currentUrl').textContent = currentUrl;
             new QRCode(document.getElementById("qrcode"), {
                 text: currentUrl,
-                width: 200,
-                height: 200,
+                width: 400,
+                height: 400,
                 colorDark: "#2d3748",
                 colorLight: "#ffffff",
             });
