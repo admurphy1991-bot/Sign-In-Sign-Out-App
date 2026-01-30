@@ -284,6 +284,82 @@
             color: #4a5568;
         }
 
+        .search-section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .search-input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .search-results {
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .search-result-item:hover {
+            border-color: #48bb78;
+            background: #f0fff4;
+            transform: translateX(5px);
+        }
+
+        .search-result-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 3px;
+        }
+
+        .search-result-details {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 25px 0;
+            color: #a0aec0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .divider span {
+            padding: 0 15px;
+        }
+
         @media print {
             body {
                 background: white;
@@ -338,6 +414,23 @@
             <!-- Sign In Tab -->
             <div id="signin" class="tab-content active">
                 <h2 style="margin-bottom: 20px; color: #2d3748;">Sign In</h2>
+                
+                <!-- Quick Search for Returning Visitors -->
+                <div class="search-section">
+                    <input 
+                        type="text" 
+                        id="visitorSearch" 
+                        class="search-input" 
+                        placeholder="🔍 Returning visitor? Type your name to search..."
+                        autocomplete="off"
+                    >
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+
+                <div class="divider">
+                    <span>OR SIGN IN MANUALLY</span>
+                </div>
+
                 <form id="signinForm">
                     <div class="form-group">
                         <label for="name">Full Name *</label>
@@ -423,6 +516,7 @@
                 const response = await fetch('/api/visitors');
                 if (!response.ok) throw new Error('Failed to fetch');
                 visitors = await response.json();
+                updatePreviousVisitors();
                 updateDisplay();
             } catch (error) {
                 console.error('Error fetching visitors:', error);
@@ -473,6 +567,82 @@
             }
         }
 
+        // Visitor Search Functionality
+        let previousVisitors = [];
+
+        function updatePreviousVisitors() {
+            // Get unique visitors (by name) from all visitors
+            const uniqueVisitors = [];
+            const seenNames = new Set();
+            
+            // Sort by most recent sign-in
+            const sortedVisitors = [...visitors].sort((a, b) => 
+                new Date(b.signInTime) - new Date(a.signInTime)
+            );
+            
+            for (const visitor of sortedVisitors) {
+                if (!seenNames.has(visitor.name.toLowerCase())) {
+                    seenNames.add(visitor.name.toLowerCase());
+                    uniqueVisitors.push(visitor);
+                }
+            }
+            
+            // Keep last 50 unique visitors
+            previousVisitors = uniqueVisitors.slice(0, 50);
+        }
+
+        function searchVisitors(searchTerm) {
+            if (!searchTerm || searchTerm.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+            
+            const term = searchTerm.toLowerCase();
+            const results = previousVisitors.filter(v => 
+                v.name.toLowerCase().includes(term) ||
+                v.company.toLowerCase().includes(term)
+            ).slice(0, 10); // Show max 10 results
+            
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div style="padding: 15px; text-align: center; color: #a0aec0;">No matching visitors found</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = results.map(v => `
+                <div class="search-result-item" onclick="quickSignIn(${v.id})">
+                    <div class="search-result-name">${v.name}</div>
+                    <div class="search-result-details">
+                        ${v.company} • ${v.type}${v.carRego ? ` • ${v.carRego}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function quickSignIn(visitorId) {
+            const visitor = previousVisitors.find(v => v.id === visitorId);
+            if (!visitor) return;
+            
+            // Create new sign-in with same details
+            const visitorData = {
+                name: visitor.name,
+                company: visitor.company,
+                type: visitor.type,
+                contact: visitor.contact || '',
+                carRego: visitor.carRego || ''
+            };
+            
+            const success = await addVisitor(visitorData);
+            
+            if (success) {
+                // Clear search
+                document.getElementById('visitorSearch').value = '';
+                document.getElementById('searchResults').innerHTML = '';
+                showAlert(`✓ ${visitor.name} signed in successfully!`, 'success');
+            }
+        }
+
         // Initialize
         window.onload = function() {
             // Generate QR Code
@@ -489,6 +659,11 @@
             // Load initial data
             fetchVisitors();
 
+            // Setup visitor search
+            document.getElementById('visitorSearch').addEventListener('input', (e) => {
+                searchVisitors(e.target.value);
+            });
+
             // Auto-refresh every 10 seconds when on sign out or register tab
             refreshInterval = setInterval(() => {
                 const activeTab = document.querySelector('.tab-content.active');
@@ -496,7 +671,38 @@
                     fetchVisitors();
                 }
             }, 10000);
+
+            // Check for automatic sign-out at 6pm every minute
+            setInterval(autoSignOutAt6pm, 60000);
+            autoSignOutAt6pm(); // Run immediately on load
         };
+
+        // Automatic sign-out at 6pm
+        async function autoSignOutAt6pm() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+
+            // If it's 6pm (18:00), sign out everyone who hasn't signed out
+            if (hours === 18 && minutes === 0) {
+                const activeVisitors = visitors.filter(v => !v.signOutTime);
+                
+                for (const visitor of activeVisitors) {
+                    try {
+                        await fetch(`/api/visitors/${visitor.id}/signout`, {
+                            method: 'PUT'
+                        });
+                    } catch (error) {
+                        console.error('Error auto-signing out visitor:', error);
+                    }
+                }
+                
+                if (activeVisitors.length > 0) {
+                    await fetchVisitors();
+                    console.log(`Auto-signed out ${activeVisitors.length} visitor(s) at 6pm`);
+                }
+            }
+        }
 
         // Tab switching
         function showTab(tabName) {
